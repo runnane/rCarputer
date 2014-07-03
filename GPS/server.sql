@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS `gpslog`;
 CREATE TABLE IF NOT EXISTS `gpslog` (
   `LogId` int(11) NOT NULL AUTO_INCREMENT,
   `Time` text NOT NULL,
