@@ -24,16 +24,14 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6367 * c
     return km 
  
-# Listen on port 2947 (gpsd) of localhost
 session = gps.gps("localhost", "2947")
 session.stream(gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE)
 
-#db = MySQLdb.connect("172.20.100.2","gps","b4y4vy4tbyrty","gps")
-#cursor = db.cursor()
 db = sqlite3.connect('/var/tmp/gps.db',10)
 cursor = db.cursor()
 
 createdb = 'create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);'
+
 cursor.execute(createdb)
 db.commit()
 

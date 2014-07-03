@@ -9,6 +9,14 @@ function ping($host, $port, $timeout) {
 }
 
 $accepted_ssids = array("tungland");
+
+$createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
+$db = new SQLite3("/var/tmp/gps.db");
+if(!$db){
+	$db->query($createdb);
+	die("Could not connect to local db... breaking.\n");
+}
+
 while(1){
 	$ssid = exec("iwgetid -r");
 	echo "connected to SSID={$ssid}\n";
