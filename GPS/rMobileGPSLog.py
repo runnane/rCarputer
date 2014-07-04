@@ -47,7 +47,7 @@ while True:
 				print "Moved ", distance, " m"
 				print " from " , prevreport.lon ,",", prevreport.lat
 				print " to " , report.lon ,",", report.lat
-			if distance < 5:
+			if distance < 10:
 				continue;
 			sqlnames = "time2,distance"
 			sqlvalues = "datetime(),'" + str(distance) + "'"
