@@ -1,16 +1,14 @@
 import gps
 import os
-#import MySQLdb
 import sqlite3
 import datetime
 from math import radians, cos, sin, asin, sqrt
-
-# grabbed from http://stackoverflow.com/questions/4913349/haversine-formula-in-python-bearing-and-distance-between-two-gps-points (Michael Dunn)
 
 def logit(text):
 	with open("/ssd/log/rcarputer.log","a+") as fp:
 		fp.write(str(datetime.datetime.now()) + " gpspoller: " + text + "\n")	
 
+# grabbed from http://stackoverflow.com/questions/4913349/haversine-formula-in-python-bearing-and-distance-between-two-gps-points (Michael Dunn)
 def haversine(lon1, lat1, lon2, lat2):
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1 
@@ -20,12 +18,17 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6367 * c
     return km 
 
-logit("Starting GPSPoller") 
+logit("Initializing")
+
+# Connect to local GPSD
 session = gps.gps("localhost", "2947")
 session.stream(gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE)
+logit("Connected to GPSD")
 
-db = sqlite3.connect('/ssd/db/rcarputer.db',10)
+# Connnect to local SQLite
+db = sqlite3.connect('/ssd/db/rcarputer.db', 10)
 cursor = db.cursor()
+logit("Connected to SQLite db")
 
 createdb = 'create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);'
 
@@ -33,6 +36,9 @@ cursor.execute(createdb)
 db.commit()
 
 attribs = ['time', 'speed', 'alt', 'lat', 'lon', 'epv', 'ept', 'track', 'climb']
+
+# Loop through GPS data
+logit("Initializated, starting to read data")
 while True:
 	try:
 		report = session.next()
@@ -64,8 +70,8 @@ while True:
 	except KeyError:
 		pass
 	except KeyboardInterrupt:
-		logit("GPSPoller stopping")
+		logit("Stopping")
 		quit()
 	except StopIteration:
 		session = None
-		logit("GPSPoller stopping, GPSD has terminated")
+		logit("Stopping, GPSD has terminated")

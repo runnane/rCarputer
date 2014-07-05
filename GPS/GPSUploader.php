@@ -1,5 +1,16 @@
 <?php
 
+/***************************************/
+/* Settings                            */
+/***************************************/
+
+$accepted_ssids = array("tungland","fwg");
+define("SQLITE_FILE", "/ssd/db/rcarputer.db");
+
+/***************************************/
+/* Helper functions                    */
+/***************************************/
+
 function ping($host, $port, $timeout) { 
   $tB = microtime(true); 
   $fP = @fSockOpen($host, $port, $errno, $errstr, $timeout); 
@@ -9,32 +20,28 @@ function ping($host, $port, $timeout) {
 }
 
 function logit($text){
- file_put_contents("/ssd/log/rcarputer.log", date("Y-m-d H:i:s.000000") . " gpsuploader: " . $text . "\n", FILE_APPEND | LOCK_EX );
-
+ $msecparts = explode(" ",microtime());
+ $msec = substr($msecparts[0],2,6);
+ file_put_contents("/ssd/log/rcarputer.log", date("Y-m-d H:i:s") . "." . $msec .  " gpsuploader: " . $text . "\n", FILE_APPEND | LOCK_EX );
 }
 
 /***************************************/
-/* settings                            */
+/* Code starting here                  */
 /***************************************/
 
-$accepted_ssids = array("tungland","fwg");
-define("SQLITE_FILE", "/ssd/db/rcarputer.db");
-
-/***************************************/
-/* code starting here                  */
-/***************************************/
-
-logit("Starting");
+logit("Initializing");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
 $db = new SQLite3(SQLITE_FILE);
 if(!$db){
-	logit("Could not connect to local db... breaking.");
+	logit("Could not connect to local db, aborting.");
 	die();
 }
+logit("Connected to local SQLite db");
 $db->query($createdb);
 $db->close();
 
+// Main loop
 while(1){
 	$ssid = exec("/sbin/iwgetid -r");
 	logit("Connected to SSID={$ssid}");
@@ -107,10 +114,6 @@ function syncDB($localdb, $remotedb){
 			logit("Failed to insert on remote server, skipping.");
 			break;
 		}
-		//if($count%50==0){
-		//	echo "Waiting 1 sec for other processes\n";
-		//	sleep(2);
-		//}
 	}
 	if(isset($last)){
 		$query = "DELETE FROM gpslog WHERE rowid<='{$last}'";
