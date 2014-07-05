@@ -8,71 +8,89 @@ function ping($host, $port, $timeout) {
   return round((($tA - $tB) * 1000), 0)." ms"; 
 }
 
-$accepted_ssids = array("tungland");
+function logit($text){
+ file_put_contents("/ssd/log/rcarputer.log", date("Y-m-d H:i:s.000000") . " gpsuploader: " . $text . "\n", FILE_APPEND | LOCK_EX );
+
+}
+
+/***************************************/
+/* settings                            */
+/***************************************/
+
+$accepted_ssids = array("tungland","fwg");
+define("SQLITE_FILE", "/ssd/db/rcarputer.db");
+
+/***************************************/
+/* code starting here                  */
+/***************************************/
+
+logit("Starting");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
-$db = new SQLite3("/var/tmp/gps.db");
+$db = new SQLite3(SQLITE_FILE);
 if(!$db){
-	die("Could not connect to local db... breaking.\n");
+	logit("Could not connect to local db... breaking.");
+	die();
 }
 $db->query($createdb);
 $db->close();
 
 while(1){
-	$ssid = exec("iwgetid -r");
-	echo "connected to SSID={$ssid}\n";
+	$ssid = exec("/sbin/iwgetid -r");
+	logit("Connected to SSID={$ssid}");
 	if(!in_array($ssid, $accepted_ssids)){
-		echo "Not connected to a known SSID, sleeping\n";
+		logit("Not connected to a known SSID, sleeping 60 sec");
 		sleep(60);
 		continue;
 	}
 
 	$r = ping("172.20.100.2","22","1000");
 	if($r === false){
-		echo "... No internet/LAN access, sleeping 10 sec\n";
+		logit("... No internet/LAN access, sleeping 60 sec");
 		sleep(60);
 		continue;
 	}
 	$r = connectAndSyncDB();
 	if($r == 100){
-		echo "Sleeping 1 sec since we have more rows in queue ... \n";
+		logit("Sleeping 1 sec since we have more rows in queue ... ");
 		sleep(1);
 	
 	}else{
-		echo "Sleeping 60 sec ... \n";
+		logit("Sleeping 10 sec ...");
 		sleep(10);
 	}
 	continue;
 }
 
 function connectAndSyncDB() {
-	echo "Trying to sync db ... \n";
-	$localdb = new SQLite3("/var/tmp/gps.db");
+	logit("Trying to sync db ...");
+	$localdb = new SQLite3(SQLITE_FILE);
 	if(!$localdb){
-		echo "Could not connect to local db... breaking.\n";
+		logit("Could not connect to local db... breaking.");
 		return;
 	}
 	$remotedb = new MySQLi("172.20.100.2","gps","b4y4vy4tbyrty","gps");
 	if(!$remotedb){
-		echo "Could not connect to remote db... breaking.\n";
+		logit("Could not connect to remote db... breaking.");
 		$localdb->close();
 		return;
 	}
 	$localdb->busyTimeout(10000);
 
-	echo "Syncing...\n";
+	logit("Syncing...");
 	$num = syncDB($localdb, $remotedb);
-	echo "Synced {$num} rows \n";
+	logit("Synced {$num} rows");
 	$localdb->close();
 	$remotedb->close();
 	return $num;
 }
 
 function syncDB($localdb, $remotedb){
+	logit("Sync starting");
 	$query = "SELECT rowid, * FROM gpslog ORDER BY time2 LIMIT 100";
 	$result = $localdb->query($query);
 	if(!isset($result)){
-		echo "Not possible to get local records, breaking\n";
+		logit("Not possible to get local records, breaking");
 		return -1;
 	}
 	$count=0;
@@ -86,7 +104,7 @@ function syncDB($localdb, $remotedb){
 			$count++;
 			$last=$rowf['rowid'];
 		}else{
-			echo "Failed to insert on remote server, skipping.\n";
+			logit("Failed to insert on remote server, skipping.");
 			break;
 		}
 		//if($count%50==0){
@@ -97,7 +115,6 @@ function syncDB($localdb, $remotedb){
 	if(isset($last)){
 		$query = "DELETE FROM gpslog WHERE rowid<='{$last}'";
 		$localdb->exec($query);
-		echo "Deleting: {$query}\n";
 	}
 	return $count;
 

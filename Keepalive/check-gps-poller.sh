@@ -1,7 +1,7 @@
 #!/bin/bash
 
-process="rMobileGPSLog.py"
-makerun="python /root/rCarputer/GPS/rMobileGPSLog.py"
+process="GPSPoller.py"
+makerun="python /ssd/rCarputer/GPS/GPSPoller.py"
 
 if ps ax | grep -v grep | grep $process > /dev/null
         then

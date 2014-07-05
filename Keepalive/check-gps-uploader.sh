@@ -1,7 +1,7 @@
 #!/bin/bash
 
-process="rMobileGPSUploader.php"
-makerun="php /root/rCarputer/GPS/rMobileGPSUploader.php"
+process="GPSUploader.php"
+makerun="php /ssd/rCarputer/GPS/GPSUploader.php"
 
 if ps ax | grep -v grep | grep $process > /dev/null
         then
