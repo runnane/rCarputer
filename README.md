@@ -7,11 +7,12 @@ FILES
 ----
 * GPS/* - files for capturing, storing and syncing GPS signals
 * Keepalive/* - scripts for 
-* server.sql - sql layout for offsite main storage
+* offsite-server.sql - sql layout for offsite main storage
 
 CRON
 ----
-```*/1 * * * * /bin/bash /ssd/rCarputer/Keepalive/check-gps-uploader.sh
+```
+*/1 * * * * /bin/bash /ssd/rCarputer/Keepalive/check-gps-uploader.sh
 */1 * * * * /bin/bash /ssd/rCarputer/Keepalive/check-gps-poller.sh
 ```
 
