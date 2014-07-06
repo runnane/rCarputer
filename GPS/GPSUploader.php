@@ -4,7 +4,7 @@
 /* Settings                            */
 /***************************************/
 
-$accepted_ssids = array("tungland","fwg");
+$accepted_ssids = array("tungland","fwg","Telenor5944fus");
 define("SQLITE_FILE", "/ssd/db/rcarputer.db");
 
 /***************************************/
