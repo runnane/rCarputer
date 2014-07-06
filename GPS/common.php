@@ -21,7 +21,7 @@ function ping($host, $timeout = 1) {
 	$ts = microtime(true);
 	socket_send($socket, $package, strLen($package), 0);
 	if (socket_read($socket, 255)){
-		$result = microtime(true) - $ts;
+		$result = (microtime(true) - $ts) * 1000;
         }else{
 		$result = false;
 	}
@@ -47,3 +47,4 @@ function post($action, $data){
  curl_close($curl);
  return json_decode($curl_response);
 }
+?>

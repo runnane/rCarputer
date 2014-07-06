@@ -1,9 +1,10 @@
 <?php
 
-$accepted_ssids = array("tungland", "fwg", "Telenor5944fus", "supah");
-define("SQLITE_FILE", "/ssd/db/rcarputer.db");
+$accepted_ssids = array();
 define("REST_USERNAME","");
 define("REST_PASSWORD", "");
+define("LATENCY_TARGET", "");
+
+define("SQLITE_FILE", "/ssd/db/rcarputer.db");
 
 ?>
-
