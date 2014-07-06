@@ -4,26 +4,13 @@
 /* Settings                            */
 /***************************************/
 
-$accepted_ssids = array("tungland","fwg","Telenor5944fus");
-define("SQLITE_FILE", "/ssd/db/rcarputer.db");
+require_once("settings.php");
 
 /***************************************/
 /* Helper functions                    */
 /***************************************/
 
-function ping($host, $port, $timeout) { 
-  $tB = microtime(true); 
-  $fP = @fSockOpen($host, $port, $errno, $errstr, $timeout); 
-  if (!$fP) { return false; } 
-  $tA = microtime(true); 
-  return round((($tA - $tB) * 1000), 0)." ms"; 
-}
-
-function logit($text){
- $msecparts = explode(" ",microtime());
- $msec = substr($msecparts[0],2,6);
- file_put_contents("/ssd/log/rcarputer.log", date("Y-m-d H:i:s") . "." . $msec .  " gpsuploader: " . $text . "\n", FILE_APPEND | LOCK_EX );
-}
+require_once("common.php");
 
 /***************************************/
 /* Code starting here                  */
@@ -51,13 +38,27 @@ while(1){
 		continue;
 	}
 
-	$r = ping("172.20.100.2","22","1000");
-	if($r === false){
-		logit("... No internet/LAN access, sleeping 60 sec");
-		sleep(60);
+	$localdb = new SQLite3(SQLITE_FILE);
+	if(!$localdb){
+		logit("Could not connect to local db... breaking.");
+		return;
+	}
+	$localdb->busyTimeout(10000);
+
+	// check if we have rows to sync	
+	$p = post("ping",false);
+	if(!is_object($p) || $p->result != "pong"){
+		logit("... no REST access, sleeping 10 sec");
+		$localdb->close();
+		sleep(10);
 		continue;
 	}
-	$r = connectAndSyncDB();
+	logit("Connected to REST interface");
+
+	logit("Syncing rows...");
+	$r = syncDB($localdb);
+	$localdb->close();
+	logit("Synced {$num} rows");
 	if($r == 100){
 		logit("Sleeping 1 sec since we have more rows in queue ... ");
 		sleep(1);
@@ -69,57 +70,39 @@ while(1){
 	continue;
 }
 
-function connectAndSyncDB() {
-	logit("Trying to sync db ...");
-	$localdb = new SQLite3(SQLITE_FILE);
-	if(!$localdb){
-		logit("Could not connect to local db... breaking.");
-		return;
-	}
-	$remotedb = new MySQLi("172.20.100.2","gps","b4y4vy4tbyrty","gps");
-	if(!$remotedb){
-		logit("Could not connect to remote db... breaking.");
-		$localdb->close();
-		return;
-	}
-	$localdb->busyTimeout(10000);
-
-	logit("Syncing...");
-	$num = syncDB($localdb, $remotedb);
-	logit("Synced {$num} rows");
-	$localdb->close();
-	$remotedb->close();
-	return $num;
-}
-
-function syncDB($localdb, $remotedb){
+function syncDB($localdb){
 	logit("Sync starting");
-	$query = "SELECT rowid, * FROM gpslog ORDER BY time2 LIMIT 100";
+	$query = "SELECT rowid, * FROM gpslog ORDER BY rowid LIMIT 100";
 	$result = $localdb->query($query);
 	if(!isset($result)){
 		logit("Not possible to get local records, breaking");
 		return -1;
 	}
 	$count=0;
-	while($rowf = $result->fetchArray(SQLITE3_ASSOC)){
-		$query = "INSERT INTO gps.gpslog (
-			time,time2,lat,lon,speed,alt,extra,epv,ept,track,climb,distance
-			) VALUES (
-			'{$rowf['time']}','{$rowf['time2']}','{$rowf['lat']}','{$rowf['lon']}','{$rowf['speed']}','{$rowf['alt']}','{$rowf['extra']}','{$rowf['epv']}','{$rowf['ept']}','{$rowf['track']}','{$rowf['climb']}','{$rowf['distance']}'
-			)";
-		if($remotedb->query($query)){
-			$count++;
-			$last=$rowf['rowid'];
-		}else{
-			logit("Failed to insert on remote server, skipping.");
-			break;
-		}
+	$return = array("rows" => array());
+	while($return["rows"][] = $result->fetchArray(SQLITE3_ASSOC)){
+		$count++;
 	}
-	if(isset($last)){
-		$query = "DELETE FROM gpslog WHERE rowid<='{$last}'";
+
+	$result = post("SaveGPS",json_encode($return));
+	if(!is_object($result)){
+		logit("no object returned from rest, aborting");
+		return 0;
+	}
+	if(!isset($result->result)){
+		logit("no object result inner object returned from rest, aborting");
+		return 0;
+	}
+	if($result->result->count > 0){
+		logit("Will delete {$result->result->count} rows from local db");
+		$query = "DELETE FROM gpslog WHERE rowid<='{$result->result->max}' AND rowid >='{$result->result->min}' LIMIT {$result->result->count}";
 		$localdb->exec($query);
+		logit($query);
+		
 	}
-	return $count;
+	
+
+	return $result->result->count;
 
 }
 
