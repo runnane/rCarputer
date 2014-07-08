@@ -17,7 +17,7 @@ require_once("common.php");
 /***************************************/
 
 logit("Initializing");
-define("REPORTIN_VERSION","0.1");
+define("REPORTIN_VERSION","0.2");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
 $db = new SQLite3(SQLITE_FILE);
@@ -25,6 +25,7 @@ if(!$db){
 	logit("Could not connect to local db, aborting.");
 	die();
 }
+
 logit("Connected to local SQLite db");
 $db->query($createdb);
 $db->close();
@@ -40,10 +41,10 @@ function reportIn($parm){
 
 		foreach($nics as $interface){
 			$parm["interfaces"][$interface]["ip"] = exec("/sbin/ifconfig {$interface} | grep \"inet addr:\" | cut -d: -f2 | awk '{ print $1}'");
-			$parm["interfaces"][$interface]["rx"] = exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f2 | awk '{ print $1}'");
-			$parm["interfaces"][$interface]["tx"] = exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f3 | awk '{ print $1}'");
+			$parm["interfaces"][$interface]["rx"] = intval(exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f2 | awk '{ print $1}'"));
+			$parm["interfaces"][$interface]["tx"] = intval(exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f3 | awk '{ print $1}'"));
 			if(stristr($interface, "wlan") !== FALSE){
-				$parm["interfaces"][$interface]["snr"] = exec("/sbin/iwconfig {$interface} | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1");
+				$parm["interfaces"][$interface]["snr"] = intval(exec("/sbin/iwconfig {$interface} | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1"));
 			}
 		}
 		$wlans = scanWlan();
@@ -77,7 +78,7 @@ while(1){
 		continue;
 	}
 
-	$latency = ping(LATENCY_TARGET);
+	$latency = floatval(ping(LATENCY_TARGET));
 	if(!$latency){
 		logit("No network contact, sleeping 60 sec");
 		sleep(60);
@@ -114,10 +115,9 @@ while(1){
 
 	logit("Connected to REST interface");
 
-	logit("Syncing rows...");
 	$r = syncDB($localdb);
-	$localdb->close();
 	logit("Synced {$r} rows");
+	$localdb->close();
 	if($r == 100){
 		logit("Sleeping 1 sec since we have more rows in queue ... ");
 		sleep(1);
