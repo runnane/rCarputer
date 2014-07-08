@@ -17,6 +17,7 @@ require_once("common.php");
 /***************************************/
 
 logit("Initializing");
+define("REPORTIN_VERSION","0.1");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
 $db = new SQLite3(SQLITE_FILE);
@@ -30,14 +31,26 @@ $db->close();
 
 $lastReport = 0;
 function reportIn($parm){
-	global $lastReport;
-	if(time()-$lastReport > 1){
-		$eth0_ip = exec("/sbin/ifconfig eth0 | grep \"inet addr:\" | grep -v \"127.0.0.1\" | cut -d: -f2 | awk '{ print $1}'");
-		$wlan0_ip = exec("/sbin/ifconfig wlan0 | grep \"inet addr:\" | grep -v \"127.0.0.1\" | cut -d: -f2 | awk '{ print $1}'");
-		$snr = exec("/sbin/iwconfig wlan0 | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1");
+	global $lastReport, $nics;
+	if(time()-$lastReport > REPORTIN_INTERVAL){
 
-		logit("eth0={$eth0_ip}, wlan0={$wlan0_ip}");
-		$parm["interfaces"] = array("eth0" => $eth0_ip, "wlan0" => $wlan0_ip, "snr" => $snr);
+		$parm["host"] = gethostname();
+		$parm["process"] = basename(__FILE__);
+		$parm["version"] = REPORTIN_VERSION;
+
+		foreach($nics as $interface){
+			$parm["interfaces"][$interface]["ip"] = exec("/sbin/ifconfig {$interface} | grep \"inet addr:\" | cut -d: -f2 | awk '{ print $1}'");
+			$parm["interfaces"][$interface]["rx"] = exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f2 | awk '{ print $1}'");
+			$parm["interfaces"][$interface]["tx"] = exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f3 | awk '{ print $1}'");
+			if(stristr($interface, "wlan") !== FALSE){
+				$parm["interfaces"][$interface]["snr"] = exec("/sbin/iwconfig {$interface} | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1");
+			}
+		}
+		$wlans = scanWlan();
+		foreach($wlans as $id => $val){
+        		$parm["wlans"][$id] = collapseArray($val);
+		}
+
 		
 		$p = post("reportIn",json_encode($parm));
 		if(!is_object($p)){
@@ -72,7 +85,7 @@ while(1){
 	}
 	logit("Network connectivity at {$latency}");
 
-	reportIn(array("host" => gethostname(), "process" => "GPSUploader.php", "latency" => $latency, "ssid" => $ssid));
+	reportIn(array("latency" => $latency, "ssid" => $ssid));
 
 	$localdb = new SQLite3(SQLITE_FILE);
 	if(!$localdb){
