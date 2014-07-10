@@ -17,7 +17,7 @@ require_once("common.php");
 /***************************************/
 
 logit("Initializing");
-define("REPORTIN_VERSION","0.2");
+define("REPORTIN_VERSION","0.3");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
 $db = new SQLite3(SQLITE_FILE);
@@ -47,13 +47,14 @@ function reportIn($parm){
 				$parm["interfaces"][$interface]["snr"] = intval(exec("/sbin/iwconfig {$interface} | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1"));
 			}
 		}
-		$wlans = scanWlan();
-		foreach($wlans as $id => $val){
-        		$parm["wlans"][$id] = collapseArray($val);
+		if(INCLUDE_WLAN_SCAN == 1){
+			$wlans = scanWlan();
+			foreach($wlans as $id => $val){
+        			$parm["wlans"][$id] = collapseArray($val);
+			}
 		}
-
 		
-		$p = post("reportIn",json_encode($parm));
+		$p = post("reportIn", json_encode($parm));
 		if(!is_object($p)){
 			logit("reportIn() failed.. got '" . print_r($p->result, true) . "'");
 		}
