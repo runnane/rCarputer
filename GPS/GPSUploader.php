@@ -17,7 +17,7 @@ require_once("common.php");
 /***************************************/
 
 logit("Initializing");
-define("REPORTIN_VERSION","0.3");
+define("REPORTIN_VERSION","0.6");
 
 $createdb = "create table if not exists gpslog(time TEXT, speed TEXT, lat TEXT, lon TEXT, alt TEXT, extra TEXT, time2 TEXT, epv TEXT, ept TEXT, track TEXT, climb TEXT, distance TEXT);";
 $db = new SQLite3(SQLITE_FILE);
@@ -40,13 +40,19 @@ function reportIn($parm){
 		$parm["version"] = REPORTIN_VERSION;
 
 		foreach($nics as $interface){
-			$parm["interfaces"][$interface]["ip"] = exec("/sbin/ifconfig {$interface} | grep \"inet addr:\" | cut -d: -f2 | awk '{ print $1}'");
+			$parm["interfaces"][$interface]["ip"] = getIPfromInterface($interface);
+			$parm["interfaces"][$interface]["mac"] = exec("/sbin/ip addr show {$interface} | grep ether | sed 's/^ *//' | cut -d ' ' -f 2"); 
 			$parm["interfaces"][$interface]["rx"] = intval(exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f2 | awk '{ print $1}'"));
 			$parm["interfaces"][$interface]["tx"] = intval(exec("/sbin/ifconfig {$interface} | grep \"bytes:\" | cut -d: -f3 | awk '{ print $1}'"));
 			if(stristr($interface, "wlan") !== FALSE){
 				$parm["interfaces"][$interface]["snr"] = intval(exec("/sbin/iwconfig {$interface} | grep \"Signal level\" | cut -d= -f3 | cut -d/ -f1"));
 			}
 		}
+
+		$parm['gw']['ipv4'] = exec("/sbin/ip route show | grep 'default via'");
+		$parm['gw']['ipv6'] = exec("/sbin/ip -6 route show | grep 'default via'");
+		$parm['public_ip'] = getPublicIP();
+
 		if(INCLUDE_WLAN_SCAN == 1){
 			$wlans = scanWlan();
 			foreach($wlans as $id => $val){
@@ -79,9 +85,9 @@ while(1){
 		continue;
 	}
 
-	$latency = floatval(ping(LATENCY_TARGET));
+	$latency = floatval(ping(ICMPv4_TARGET));
 	if(!$latency){
-		logit("No network contact, sleeping 60 sec");
+		logit("No ipv4 network contact, sleeping 60 sec");
 		sleep(60);
 		continue;
 	}

@@ -39,11 +39,37 @@ function post($action, $data){
  $curl = curl_init($service_url);
  curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
  curl_setopt($curl, CURLOPT_POST, true);
- curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+ curl_setopt($curl, CURLOPT_POSTFIELDS, gzcompress($data));
  curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type: text/plain'));
+ curl_setopt($curl, CURLOPT_ENCODING, 'Accept-Encoding: gzip,deflate');
  $curl_response = curl_exec($curl);
  curl_close($curl);
  return json_decode($curl_response);
+}
+
+function easyCurl($service_url){
+ $curl = curl_init($service_url);
+ curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+ curl_setopt($curl, CURLOPT_ENCODING, 'Accept-Encoding: gzip,deflate');
+ $curl_response = curl_exec($curl);
+ curl_close($curl);
+ return $curl_response;
+}
+
+function getPublicIP(){
+ $service4_url = "http://46.246.108.248/ip.php";
+ $service6_url = "http://[2a00:1a28:1101:81c:1337::bd8]/ip.php";
+ $ip4 = easyCurl($service4_url);
+ $ip6 = easyCurl($service6_url);
+ return array("ipv4" => json_decode($ip4), "ipv6" => json_decode($ip6));
+}
+
+function getIPfromInterface($interface){
+	$ip4 = $ip6 = array();
+	$last4 = exec("/sbin/ip addr show {$interface} | grep 'inet ' |  sed 's/^ *//' | cut -d ' ' -f 2", $ip4);
+	$last6 = exec("/sbin/ip addr show {$interface} | grep 'inet6 ' |  sed 's/^ *//' | cut -d ' ' -f 2", $ip6);
+	return array_merge($ip4, $ip6);
+
 }
 
 function scanWlan(){
